@@ -34,7 +34,8 @@ module God
         attr_accessor :to_email, :to_name, :from_email, :from_name,
                       :delivery_method, :server_host, :server_port,
                       :server_auth, :server_domain, :server_user,
-                      :server_password, :sendmail_path, :sendmail_args
+                      :server_password, :sendmail_path, :sendmail_args,
+                      :enable_starttls_auto
         attr_accessor :format
       end
 
@@ -46,6 +47,7 @@ module God
       self.server_port = 25
       self.sendmail_path = '/usr/sbin/sendmail'
       self.sendmail_args = '-i -t'
+      self.enable_starttls_auto = false
 
       self.format = lambda do |name, from_email, from_name, to_email, to_name, message, time, priority, category, host|
         <<-EOF
@@ -65,7 +67,8 @@ Category: #{category}
       attr_accessor :to_email, :to_name, :from_email, :from_name,
                     :delivery_method, :server_host, :server_port,
                     :server_auth, :server_domain, :server_user,
-                    :server_password, :sendmail_path, :sendmail_args
+                    :server_password, :sendmail_path, :sendmail_args,
+                    :enable_starttls_auto
 
       def valid?
         valid = true
@@ -102,7 +105,10 @@ Category: #{category}
       end
 
       def notify_smtp(mail)
-        args = [arg(:server_host), arg(:server_port)]
+        smtp = Net::SMTP.new arg(:server_host), arg(:server_port)
+        smtp.enable_starttls_auto if arg(:enable_starttls_auto)
+
+        args = []
         if arg(:server_auth)
           args << arg(:server_domain)
           args << arg(:server_user)
@@ -110,11 +116,11 @@ Category: #{category}
           args << arg(:server_auth)
         end
 
-        Net::SMTP.start(*args) do |smtp|
+        smtp.start(*args) do |smtp|
           smtp.send_message(mail, arg(:from_email), arg(:to_email))
         end
       end
-
+      
       def notify_sendmail(mail)
         IO.popen("#{arg(:sendmail_path)} #{arg(:sendmail_args)}","w+") do |sm|
           sm.print(mail.gsub(/\r/, ''))
@@ -122,6 +128,5 @@ Category: #{category}
         end
       end
     end
-
   end
 end
